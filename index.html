@@ -1,0 +1,377 @@
+<html>
+
+<!-- (c) Copyright 2013, Erik Aronesty, All Rights Reserved (erik at q32.com) -->
+
+<head>
+
+<script language="JavaScript">
+
+var siteKey="";
+var userKey="";
+var siteDefault={size: 24, notes: ""};
+var siteInfo=siteDefault;
+var userDefault={verif: ""};
+var userInfo=userDefault;
+var prevSite;
+
+function selectAll(id)
+{
+    document.getElementById(id).focus();
+    document.getElementById(id).select();
+}
+
+function userChange() {
+	webChange();
+	var sha = CryptoJS.SHA512(username.value);
+	userKey = sha.toString(CryptoJS.enc.Hex).substr(0,64);
+	var info = getDat(userKey);
+	if (info) {
+		userInfo=JSON.parse(info);
+	} else {
+		userInfo=JSON.parse(JSON.stringify(userDefault));
+	}
+}
+
+function webChange() {
+	var sha = CryptoJS.SHA512(username.value + ':' + site.value);
+	siteKey = sha.toString(CryptoJS.enc.Hex).substr(0,64);
+	if (prevSite && prevSite != siteKey) {
+		var info = getDat(siteKey);
+		if (info) {
+			siteInfo=JSON.parse(info);
+		} else {
+			siteInfo=JSON.parse(JSON.stringify(siteDefault));
+		}
+		if (siteInfo.notes) {
+			notes.value=siteInfo.notes;
+		} else {
+			notes.value="";
+		}
+		// some websites restrict password length
+		var has_short20=new RegExp('paypal','i');
+		has_short20=has_short20.exec(site.value);
+		if (has_short20) {
+			if (siteInfo.size>20) {
+				siteInfo.size=20;
+			}
+		}
+		size.value=siteInfo.size;
+		sizeChange();
+	}
+	prevSite=siteKey;
+}
+
+function sizeChange() {
+	if (size.value>=8) {
+		siteInfo.size=size.value;
+		min8.display="none";
+	} else {
+		siteInfo.size=24;
+		min8.display="block";
+	}
+	if (settings.style.display != "none") {
+		sizebutton.innerHTML=siteInfo.size;
+	}
+}
+
+
+function clearHash() {
+	// this happens at a timeout
+	hash.value="";
+	password.value="";
+	output.style.display="none";
+}
+
+function doHash()
+{
+	// this is safe enough to save - most recent user
+	setDat("user",username.value);
+
+	// load site info
+	webChange();
+
+	var shaX = CryptoJS.SHA512(username.value + ':' + password.value);
+	var verX = shaX.toString(CryptoJS.enc.Base64);
+	var askSave=0;
+
+	// if we have previously saved info...
+	if (userInfo.verif) {
+		// same user... different password?
+		if (userInfo.verif!=verX) {
+			askSave=1;
+			showWarn();
+		} else {
+			askSave=0;
+			hideWarn();
+		}
+	}
+
+	// save prev value
+	if (!askSave) {
+		userInfo.verif=verX;
+		setDat(userKey,JSON.stringify(userInfo));
+	}
+	siteInfo.notes=notes.value;
+	setDat(siteKey,JSON.stringify(siteInfo));
+
+	// hash it
+	var sha = CryptoJS.SHA512(username.value + ':' + password.value + ':' + site.value);
+	var res = sha.toString(CryptoJS.enc.Base64);
+
+	// change size
+	hash.value=res.substr(0,siteInfo.size);
+
+	// check for annoying stuff
+	var has_dig=new RegExp('[0-9]','');
+	var has_punc=new RegExp('[/+=]','');
+	var has_cap=new RegExp('[A-Z]','');
+	var has_low=new RegExp('[a-z]','');
+
+	has_dig=has_dig.exec(hash.value);
+	has_punc=has_punc.exec(hash.value);
+	has_cap=has_cap.exec(hash.value);
+	has_low=has_low.exec(hash.value);
+
+	// append stuff that does nothing for security, but makes some sites happy
+	if (!has_dig)  { hash.value = hash.value + '1';	}
+	if (!has_punc) { hash.value = hash.value + '!';	}
+	if (!has_cap)  { hash.value = hash.value + 'A';	}
+	if (!has_low)  { hash.value = hash.value + 'a';	}
+
+	if (hash.value.length > siteInfo.size) {
+		// restrict to limited size
+		hash.value=res.substr(0,siteInfo.size-(hash.value.length-siteInfo.size)) + hash.value.substr(siteInfo.size);
+	}
+
+	output.style.display="block";
+	hash.select();
+
+	// clear window, in case the user forgets to close it
+	window.setInterval(clearHash,1000*60*60*24);
+
+
+	return false;
+}
+
+function onLoad() {
+	username.value=getDat("user");
+	userChange();
+
+	// select the first empty field
+	if (username.value != "") { 
+		if (password.value != "") { 
+			site.select(); 
+		} else {
+			password.select();
+		}
+	} else { 
+		username.select(); 
+	};
+}
+
+function setDat(name, value) {
+	if(typeof(Storage)!=="undefined") {
+		localStorage.setItem(name, value);
+	}
+	else {
+		// Sorry! No web storage support..
+		setCookie(name, 100);
+  	}
+}
+
+function getDat(name) {
+	if(typeof(Storage)!=="undefined") {
+		return localStorage.getItem(name);
+	}
+	else {
+		// Sorry! No web storage support..
+		return setCookie(name);
+  	}
+}
+
+
+// generic functions
+function setCookie(c_name,value,exdays)
+{
+	var exdate=new Date();
+	exdate.setDate(exdate.getDate() + exdays);
+	var c_value=escape(value) + ((exdays==null) ? "" : "; expires="+exdate.toUTCString());
+	document.cookie=c_name + "=" + c_value;
+}
+
+function getCookie(c_name)
+{
+var c_value = document.cookie;
+var c_start = c_value.indexOf(" " + c_name + "=");
+if (c_start == -1)
+  {
+  c_start = c_value.indexOf(c_name + "=");
+  }
+if (c_start == -1)
+  {
+  c_value = null;
+  }
+else
+  {
+  c_start = c_value.indexOf("=", c_start) + 1;
+  var c_end = c_value.indexOf(";", c_start);
+  if (c_end == -1)
+  {
+c_end = c_value.length;
+}
+c_value = unescape(c_value.substring(c_start,c_end));
+}
+return c_value;
+}
+
+function toggleSettings() {
+	if (settings.style.display=="block") {
+		settings.style.display="none";
+		sizebutton.innerHTML=siteInfo.size;
+		sizebutton.title="Size of generated password, click to change";
+	} else {
+		settings.style.display="block";
+		sizebutton.innerHTML="&uarr;";
+		size.value=siteInfo.size;
+		sizebutton.title="Close settings";
+	}
+}
+
+function showNote() {
+	note.style.display="block";
+}
+
+function hideNote() {
+	note.style.display="none";
+}
+
+function showWarn() {
+	warn.style.display="block";
+}
+
+function hideWarn() {
+	warn.style.display="none";
+}
+
+function saveMaster() {
+	var shaX = CryptoJS.SHA512(username.value + ':' + password.value);
+	var verX = shaX.toString(CryptoJS.enc.Base64);
+	userInfo.verif=verX;
+	setDat(userKey,JSON.stringify(userInfo));
+	hideWarn();
+}
+
+
+</script>
+
+<!-- hash and encoding functions -->
+<script src="sha512.js"></script>
+<script src="enc-base64-min.js"></script>
+
+<!-- b&w style, should be a param -->
+<style>
+body,p,h1,h2,h3,h4,table,td,th,ul,ol,textarea,input {
+	font-family:verdana,helvetica,arial,sans-serif;
+}
+label { display: inline-block; width: 5.5em; text-align: right; }
+input { border-radius: 7px; }
+h3 { background-color: black; color: white; border-radius: 10px; padding-top:.25em; padding-bottom:.25em; white-space:nowrap; }
+#frame { border-radius: 10px; border: 5px solid gray; padding: 0.5em; width: 21em; text-align: center; }
+#inner { text-align: left; }
+#note { font-size: small; color: gray; }
+#warn { font-size: small; color: red; }
+#sizebutton {
+	-moz-box-shadow:inset 0px 1px 2px 0px #ffffff;
+	-webkit-box-shadow:inset 0px 1px 2px 0px #ffffff;
+	box-shadow:inset 0px 1px 2px 0px #ffffff;
+	background:-webkit-gradient( linear, left top, left bottom, color-stop(0.05, #ededed), color-stop(1, #dfdfdf) );
+	background:-moz-linear-gradient( center top, #ededed 5%, #dfdfdf 100% );
+	filter:progid:DXImageTransform.Microsoft.gradient(startColorstr='#ededed', endColorstr='#dfdfdf');
+	background-color:#ededed;
+	-webkit-border-radius:10px;
+	-moz-border-radius:10px;
+	border-radius:10px;
+	text-indent:0;
+	border:1px solid #bbb;
+	display:inline-block;
+	color:#777;
+	font-family:Arial;
+	font-size:.85em;
+	font-weight:normal;
+	font-style:normal;
+	height:1.4em;
+	text-decoration:none;
+	text-align:center;
+	padding-top:.2em;
+	padding-left:.4em;
+	padding-right:.4em;
+	vertical-align:center;
+	text-shadow:1px 1px 0px #fff;
+}
+#sizebutton:hover {
+	background:-webkit-gradient( linear, left top, left bottom, color-stop(0.05, #dfdfdf), color-stop(1, #ededed) );
+	background:-moz-linear-gradient( center top, #dfdfdf 5%, #ededed 100% );
+	filter:progid:DXImageTransform.Microsoft.gradient(startColorstr='#dfdfdf', endColorstr='#ededed');
+	background-color:#dfdfdf;
+}
+#sizebutton:active {
+	position:relative;
+	top:1px;
+}
+
+</style>
+</head>
+
+<body onload="onLoad()">
+
+<div id="frame">
+<!-- stuff in this frame are centered -->
+
+<!-- this should have an href to a better description, and info on how to embed, etc, -->
+<h3><a onmouseover="showNote()" onmouseout="hideNote()"><span id=secure>Secure</span> Password Generator</a></h3>
+
+<div id="inner">
+<!-- stuff in this frame are aligned left -->
+
+<p />
+
+<!-- this form goes nowhere, but just in case set the action -->
+<form name="login" id="login" action="javascript:false" autocomplete="on" onSubmit="return doHash(this);">
+
+<label for=username>Username:</label> <input type="text" name="username" title="This is your username, so more than one identity can use passhash on this computer." onChange="userChange();" id="username" size="27" autocomplete="on" /><p />
+<label for=password title="This is your one, master password that nobody needs to know">Password:</label> <input type="password" name="password" id="password" size="27" autocomplete="on" /><p />
+<label for=site>Website:</label> <input type=text onChange="webChange();" onClick="selectAll('site');" name="site" size="23" autocomplete="on" id="site"><span onclick="return toggleSettings();" id=sizebutton title="Size of generated password, click to change">24<span><p />
+<div style="display:none;" id="settings">
+<label for=size>Size:</label> <input type=text onChange="sizeChange()" onClick="selectAll('size');" name="size" size="10" autocomplete="on" id="size" /><p />
+<label for=notes>Notes:</label> <input type=text onClick="selectAll('notes');" name="notes" size="27" autocomplete="on" id="notes" /><p />
+</div>
+<!-- empty lable, so the button lines up with other inputs -->
+<label></label><input type="submit" value="Generate Password">
+</form>
+
+<p />
+<textarea id="holdtext" style="display:none;"></textarea>
+<form id="output" style="display:none;">
+<label for="hash">Hash:</label> <input type=text id=hash name=hash value="" size=27 readonly style="background-color:pink;">
+</form>
+
+<p />
+
+<!-- shown when user hovers over the title -->
+<span id="note" style="display:none">Passwords are generated by Javascript, are never stored anywhere or transmitted anywhere. </span>
+
+<!-- shown when user verification different than last time -->
+<div id="warn" style="display:none">You master password is different than last time. <a href="javascript:saveMaster()" title="This is done without storing your master password, just a hash is stored in your browser">Click to remember this one instead.</a></p></span>
+
+<!-- shown when user verification different than last time -->
+<span id="min8" style="display:none">Minimum size is 8 characters</span>
+
+<!-- shown when website/username/password are empty -->
+<span id="help" style="display:none">Please enter a username, password and website.  A password will then be made for that site.</span>
+
+</div>
+</div>
+
+
+</body>
+</html>

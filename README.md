@@ -16,3 +16,6 @@ Config dicates hashing functions used, number of bits stored,
 and default output size.
 
 Make it into an "app" that works on my stupid phone.
+
+Main site should link here:
+http://passhash.com

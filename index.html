@@ -4,11 +4,14 @@
 
 <head>
 
+
+<link rel="shortcut icon" href="/favicon.ico" />
+
 <script language="JavaScript">
 
 var siteKey="";
 var userKey="";
-var siteDefault={size: 24, notes: ""};
+var siteDefault={size: 24, notes: "", nospecial: 0, nodigit: 0};
 var siteInfo=siteDefault;
 var userDefault={verif: ""};
 var userInfo=userDefault;
@@ -47,14 +50,21 @@ function webChange() {
 		} else {
 			notes.value="";
 		}
+
+		nospecial.checked=!!siteInfo.nospecial;
+		nodigit.checked=!!siteInfo.nodigit;
+
 		// some websites restrict password length
-		var has_short20=new RegExp('paypal','i');
+		var has_short20=new RegExp('paypal|alibaba|aliexpress','i');
 		has_short20=has_short20.exec(site.value);
 		if (has_short20) {
 			if (siteInfo.size>20) {
 				siteInfo.size=20;
 			}
 		}
+		var has_nospecial=new RegExp('alibaba|aliexpress','i');
+		has_nospecial=has_nospecial.exec(site.value);
+		nospecial.checked=has_nospecial;
 		size.value=siteInfo.size;
 		sizeChange();
 	}
@@ -69,7 +79,7 @@ function sizeChange() {
 		siteInfo.size=24;
 		min8.display="block";
 	}
-	if (settings.style.display != "none") {
+        if (settings.style.display!="block") {
 		sizebutton.innerHTML=siteInfo.size;
 	}
 }
@@ -120,6 +130,12 @@ function doHash()
 
 	// change size
 	hash.value=res.substr(0,siteInfo.size);
+	if (nospecial.checked) {
+		hash.value.replace(/[/+=!]/g,'');
+	}
+	if (nodigit.checked) {
+		hash.value.replace(/[0-9]/g,'');
+	}
 
 	// check for annoying stuff
 	var has_dig=new RegExp('[0-9]','');
@@ -133,8 +149,8 @@ function doHash()
 	has_low=has_low.exec(hash.value);
 
 	// append stuff that does nothing for security, but makes some sites happy
-	if (!has_dig)  { hash.value = hash.value + '1';	}
-	if (!has_punc) { hash.value = hash.value + '!';	}
+	if (!has_dig && !nodigit.checked)  { hash.value = hash.value + '1';	}
+	if (!has_punc && !nospecial.checked) { hash.value = hash.value + '!';	}
 	if (!has_cap)  { hash.value = hash.value + 'A';	}
 	if (!has_low)  { hash.value = hash.value + 'a';	}
 
@@ -185,7 +201,7 @@ function getDat(name) {
 	}
 	else {
 		// Sorry! No web storage support..
-		return setCookie(name);
+		return getCookie(name);
   	}
 }
 
@@ -343,6 +359,8 @@ h3 { background-color: black; color: white; border-radius: 10px; padding-top:.25
 <label for=site>Website:</label> <input type=text onChange="webChange();" onClick="selectAll('site');" name="site" size="23" autocomplete="on" id="site"><span onclick="return toggleSettings();" id=sizebutton title="Size of generated password, click to change">24<span><p />
 <div style="display:none;" id="settings">
 <label for=size>Size:</label> <input type=text onChange="sizeChange()" onClick="selectAll('size');" name="size" size="10" autocomplete="on" id="size" /><p />
+<label></label><input type=checkbox name="nospecial" autocomplete="on" id="nospecial" /> No Special 
+<input type=checkbox name="nodigit" autocomplete="on" id="nodigit" /> No Digit <p />
 <label for=notes>Notes:</label> <input type=text onClick="selectAll('notes');" name="notes" size="27" autocomplete="on" id="notes" /><p />
 </div>
 <!-- empty lable, so the button lines up with other inputs -->

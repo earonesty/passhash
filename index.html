@@ -55,14 +55,14 @@ function webChange() {
 		nodigit.checked=!!siteInfo.nodigit;
 
 		// some websites restrict password length
-		var has_short20=new RegExp('paypal|alibaba|aliexpress','i');
+		var has_short20=new RegExp('paypal|alibaba|serve.com|aliexpress','i');
 		has_short20=has_short20.exec(site.value);
 		if (has_short20) {
 			if (siteInfo.size>20) {
 				siteInfo.size=20;
 			}
 		}
-		var has_nospecial=new RegExp('alibaba|aliexpress','i');
+		var has_nospecial=new RegExp('alibaba|aliexpress|serve.com','i');
 		has_nospecial=has_nospecial.exec(site.value);
 		nospecial.checked=has_nospecial;
 		size.value=siteInfo.size;
@@ -131,10 +131,10 @@ function doHash()
 	// change size
 	hash.value=res.substr(0,siteInfo.size);
 	if (nospecial.checked) {
-		hash.value.replace(/[/+=!]/g,'');
+		hash.value=hash.value.replace(/[\/+=!]/g,'');
 	}
 	if (nodigit.checked) {
-		hash.value.replace(/[0-9]/g,'');
+		hash.value=hash.value.replace(/[0-9]/g,'');
 	}
 
 	// check for annoying stuff

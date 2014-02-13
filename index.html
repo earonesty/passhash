@@ -62,6 +62,29 @@ function webChange() {
 				siteInfo.size=20;
 			}
 		}
+
+                // some websites restrict password length stupidly
+                var has_short15=new RegExp('starbucks','i');
+                has_short15=has_short15.exec(site.value);
+                if (has_short15) {
+                        if (siteInfo.size>15) {
+                                siteInfo.size=15;
+                        }
+                }
+
+
+
+                // some websites restrict password length stupidly
+                var has_short12=new RegExp('homedepot','i');
+                has_short12=has_short12.exec(site.value);
+                if (has_short12) {
+                        if (siteInfo.size>12) {
+                                siteInfo.size=12;
+                        }
+                }
+
+
+
 		var has_nospecial=new RegExp('alibaba|aliexpress|serve.com','i');
 		has_nospecial=has_nospecial.exec(site.value);
 		nospecial.checked=has_nospecial;

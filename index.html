@@ -6,11 +6,20 @@
 
 
 <link rel="shortcut icon" href="/favicon.ico" />
+<script src="/pouch.js"></script>
 
 <script language="JavaScript">
 
-var siteKey="";
-var userKey="";
+var pdb = new PouchDB("passhash");
+if (pdb) {
+	// replicate site info... for everyone... yay
+	pdb.replicate.to("https://hereausecingedurporrower:G1O17O2PRBbok6QDRk8Ie7HQ@erik.cloudant.com/passhash", {continuous : true});
+	pdb.replicate.from("https://hereausecingedurporrower:G1O17O2PRBbok6QDRk8Ie7HQ@erik.cloudant.com/passhash", {continuous : true});
+}
+
+var userKeyL="";
+var siteKeyL="";
+var siteKeyG="";
 var siteDefault={size: 24, notes: "", nospecial: 0, nodigit: 0};
 var siteInfo=siteDefault;
 var userDefault={verif: ""};
@@ -27,24 +36,20 @@ function userChange() {
 	webChange();
 	var sha = CryptoJS.SHA512(username.value);
 	userKey = sha.toString(CryptoJS.enc.Hex).substr(0,64);
-	var info = getDat(userKey);
-	if (info) {
-		userInfo=JSON.parse(info);
-	} else {
-		userInfo=JSON.parse(JSON.stringify(userDefault));
-	}
+	getDatL(userKey, userDefault, function(v) {userInfo=v});
 }
 
 function webChange() {
 	var sha = CryptoJS.SHA512(username.value + ':' + site.value);
-	siteKey = sha.toString(CryptoJS.enc.Hex).substr(0,64);
-	if (prevSite && prevSite != siteKey) {
-		var info = getDat(siteKey);
-		if (info) {
-			siteInfo=JSON.parse(info);
-		} else {
-			siteInfo=JSON.parse(JSON.stringify(siteDefault));
-		}
+
+	// old version
+	siteKeyL = sha.toString(CryptoJS.enc.Hex).substr(0,64);
+	// new version
+	siteKeyG = sha.toString(CryptoJS.enc.Hex);
+
+	if (prevSite && prevSite != siteKeyL) {
+		getDatG(siteKeyG, siteKeyL, siteDefault, function(siteInfo) {
+
 		if (siteInfo.notes) {
 			notes.value=siteInfo.notes;
 		} else {
@@ -90,8 +95,9 @@ function webChange() {
 		nospecial.checked=has_nospecial;
 		size.value=siteInfo.size;
 		sizeChange();
+		});
 	}
-	prevSite=siteKey;
+	prevSite=siteKeyL;
 }
 
 function sizeChange() {
@@ -118,7 +124,7 @@ function clearHash() {
 function doHash()
 {
 	// this is safe enough to save - most recent user
-	setDat("user",username.value);
+	setDatX("user",username.value);
 
 	// load site info
 	webChange();
@@ -142,10 +148,10 @@ function doHash()
 	// save prev value
 	if (!askSave) {
 		userInfo.verif=verX;
-		setDat(userKey,JSON.stringify(userInfo));
+		setDatL(userKeyL,userInfo);
 	}
 	siteInfo.notes=notes.value;
-	setDat(siteKey,JSON.stringify(siteInfo));
+	setDatG(siteKeyG,siteKeyL,siteInfo);
 
 	// hash it
 	var sha = CryptoJS.SHA512(username.value + ':' + password.value + ':' + site.value);
@@ -193,7 +199,7 @@ function doHash()
 }
 
 function onLoad() {
-	username.value=getDat("user");
+	username.value=getDatX("user");
 	userChange();
 
 	// select the first empty field
@@ -208,23 +214,76 @@ function onLoad() {
 	};
 }
 
-function setDat(name, value) {
+function setDatX(nameL, value) {
 	if(typeof(Storage)!=="undefined") {
-		localStorage.setItem(name, value);
+		localStorage.setItem(nameL, value);
 	}
 	else {
 		// Sorry! No web storage support..
-		setCookie(name, 100);
-  	}
+		setCookie(nameL, 100);
+	}
 }
 
-function getDat(name) {
+function setDatL(nameL, value) {
+	setDatX(nameL,JSON.stringify(value))
+}
+
+function setDatG(nameG, nameL, value) {
+	if (pdb) {
+		value._id=nameG;
+		// pouch supported?  that's all we need
+		pdb.get(nameG, function(err, resp) {
+			if (resp) {
+				value._rev=resp._rev;
+				pdb.put(value);
+			} else {
+				pdb.put(value);
+			}
+		}, function () {
+			pdb.put(value);
+		});
+	} else {
+		setDatL(nameL, value);
+	}
+}
+
+// global get
+function getDatG(nameG, nameL, defV, func) {
+	if (pdb) {
+		pdb.get(nameG, function(err, resp) {
+			if (resp) {
+				func(resp);
+			} else {
+				// support old values, if any
+				return getDatL(nameL, defV, func);
+			}
+		}, function () {
+			// support old values, if any
+			return getDatL(nameL, defV, func);
+		});
+	} else {
+		return getDatL(nameL, defV, func);
+	}
+}
+
+function getDatL(nameL, defV, func) {
+	var x= getDatX(nameL);
+	if (x) 
+		x=JSON.parse(x);
+	if (x) 
+		return(x);
+	// make a copy of default value
+	func(JSON.parse(JSON.stringify(defV)));
+}
+
+// local get
+function getDatX(nameL) {
 	if(typeof(Storage)!=="undefined") {
-		return localStorage.getItem(name);
+		return localStorage.getItem(nameL);
 	}
 	else {
 		// Sorry! No web storage support..
-		return getCookie(name);
+		return getCookie(nameL);
   	}
 }
 
@@ -296,7 +355,7 @@ function saveMaster() {
 	var shaX = CryptoJS.SHA512(username.value + ':' + password.value);
 	var verX = shaX.toString(CryptoJS.enc.Base64);
 	userInfo.verif=verX;
-	setDat(userKey,JSON.stringify(userInfo));
+	setDatL(userKeyL,userInfo);
 	hideWarn();
 }
 

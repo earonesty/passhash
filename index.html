@@ -47,9 +47,9 @@ function webChange() {
 	// new version
 	siteKeyG = sha.toString(CryptoJS.enc.Hex);
 
-	if (prevSite && prevSite != siteKeyL) {
-		getDatG(siteKeyG, siteKeyL, siteDefault, function(siteInfo) {
-
+	if (!prevSite || (prevSite != siteKeyL)) {
+		getDatG(siteKeyG, siteKeyL, siteDefault, function(info) {
+		siteInfo=info;
 		if (siteInfo.notes) {
 			notes.value=siteInfo.notes;
 		} else {
@@ -95,9 +95,9 @@ function webChange() {
 		nospecial.checked=has_nospecial;
 		size.value=siteInfo.size;
 		sizeChange();
+		prevSite=siteKeyL;
 		});
 	}
-	prevSite=siteKeyL;
 }
 
 function sizeChange() {
